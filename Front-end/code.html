@@ -1,0 +1,473 @@
+<html style="height: 100%;">
+  <title>RTCode - share code in real time</title>
+
+  <!--FAVICON-->
+  <link rel="icon" href="/img/rt-code-icon.ico" />
+  <!--END FAVICON-->
+
+  <!--GENERAL CSS IMPORT-->
+  <link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet" type="text/css" />
+  <!--END GENERAL CSS IMPORT-->
+
+  <!--MONACO EDITOR IMPORT-->
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.16.2/min/vs/editor/editor.main.css"
+    rel="stylesheet"
+  />
+  <!--END MONACO EDITOR IMPORT-->
+
+  <!--BOOTSTRAP IMPORT-->
+  <link
+    rel="stylesheet"
+    href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+    integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+    crossorigin="anonymous"
+  />
+  <!--END BOOTSTRAP IMPORT-->
+
+  <!--FONT AWESOME IMPORTS-->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/all.min.css" />
+  <!--END FONT AWESOME IMPORTS-->
+
+  <!--GOOGLE FONTS-->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <!--END GOOGLE FONTS IMPORT-->
+
+  <!--CODE IMPORT-->
+  <link rel="stylesheet" type="text/css" href="/css/code.css" />
+  <link rel="stylesheet" type="text/css" href="/css/editor.css" />
+  <link rel="stylesheet" type="text/css" href="/css/xterm.css" />
+  <link rel="stylesheet" type="text/css" href="/css/file-tree.css" />
+  <link rel="stylesheet" type="text/css" href="/css/modals.css" />
+  <link rel="stylesheet" type="text/css" href="/css/animations.css" />
+  <link rel="stylesheet" type="text/css" href="/css/navbar.css" />
+  <!--END CODE IMPORT-->
+
+  <!--TERMINAL IMPORT-->
+  <link rel="stylesheet" href="/xterm/css/xterm.css" />
+  <!--END TERMINAL IMPORT-->
+
+  <!--TOASTR IMPORT-->
+  <link href="/toastr/build/toastr.min.css" rel="stylesheet" type="text/css" />
+  <!--END TOASTR IMPORT-->
+
+  <!--JSTREE IMPORT-->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css" />
+  <!--END JSTREE IMPORT-->
+
+  <body>
+    <div id="principal">
+      <nav class="navbar">
+        <a href="" class="navbar-brand">
+          <img src="/img/rt-code-logo.png" class="img-logo"/>
+        </a>
+        <div class="options-navbar">
+          <button
+            v-if="inExecution"
+            type="button"
+            class="btn btn-dark action-button stop"
+            @click="stopCode"
+            title="Stop execution"
+          >
+            <i class="fas fa-stop"></i>
+          </button>
+          <button
+            v-else
+            type="button"
+            class="btn btn-dark action-button run"
+            @click="runCode"
+            title="Run code"
+          >
+            <i class="fas fa-play"></i>
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-dark action-button"
+            id="sync-button"
+            onclick="updateCodeFileContent()"
+            title="Save"
+          >
+            <i class="fas fa-save"></i>
+          </button>
+
+          <button type="button" class="btn btn-dark" id="options-button" onclick="openOptionsModal()" title="Options">
+            Options
+          </button>
+
+          <button
+            v-if="!isLoged"
+            type="button"
+            class="btn btn-dark"
+            id="register-button"
+            onclick="openRegisterModal()"
+            title="Register"
+          >
+            Register
+          </button>
+
+          <button
+            v-if="!isLoged"
+            type="button"
+            class="btn btn-dark"
+            id="login-button"
+            onclick="openLoginModal()"
+            title="Login"
+          >
+            Login
+          </button>
+
+          <div class="btn-nav dropdown dropdown-user" v-if="isLoged">
+            <a
+              class="btn btn-dark dropdown-toggle"
+              href="#"
+              role="button"
+              id="dropdownMenuLink"
+              data-toggle="dropdown"
+              aria-haspopup="true"
+              aria-expanded="false"
+            >
+              <i class="far fa-user"></i> {{userName}}
+            </a>
+
+            <div class="dropdown-menu" aria-labelledby="dropdownMenuLink">
+              <a class="dropdown-item" href="#">User</a>
+              <a class="dropdown-item" href="#" onclick="openNewCodeModal()">New Code</a>
+              <a class="dropdown-item" href="#" onclick="openListCodesModal()">Codes</a>
+              <a class="dropdown-item" href="#" onclick="logout()">Logout</a>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <div class="editor-container">
+        <div class="lateral-menu" id="lateral-menu" :style="{width: widthLateral+'px'}">
+          <div class="file-tree-top-bar">
+            <p>Files</p>
+            <div class="icons">
+              <a onclick="openNewFileModal()" title="New File"><i class="far fa-plus-square fa-lg"></i></a>
+              <a title="New Folder"><i class="fas fa-folder-plus fa-lg"></i></a>
+            </div>
+          </div>
+
+          <div class="file-tree" id="file-tree"></div>
+        </div>
+        <div class="gutter-vertical" id="gutterVertical"></div>
+
+        <div class="editor-block" id="editorBlock">
+          <div class="editor-box" :style="{width:(screenWidth - widthLateral)+'px' , height: (screenHeight - heightTerminal)+'px'}">
+            <div class="nocode-screen" v-show="!codeOpened">
+              <img src="/img/rt-code-logo.png" />
+              <p>A open source platform to share code in real time.</p>
+            </div>
+            <div class="editor-div" id="code-editor" v-show="codeOpened"></div>
+          </div>
+          <div class="gutter-horizontal" id="gutterHorizontal"></div>
+          <div class="terminal-box" :style="{height: heightTerminal+'px'}">
+            <div id="terminal"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODALS -->
+      <div class="modal fade login" id="loginModal">
+        <div class="modal-dialog login animated">
+          <div class="modal-content">
+            <div class="modal-header">
+              <p class="modal-title">Login with</p>
+              <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="box">
+                <div class="content">
+                  <div class="social">
+                    <a id="github_login" class="circle github" href="#">
+                      <i class="fab fa-github"></i>
+                    </a>
+                    <a id="google_login" class="circle google" href="#">
+                      <i class="fab fa-google"></i>
+                    </a>
+                    <a id="facebook_login" class="circle facebook" href="#">
+                      <i class="fab fa-facebook-f"></i>
+                    </a>
+                  </div>
+                  <div class="division">
+                    <div class="line l"></div>
+                    <span>or</span>
+                    <div class="line r"></div>
+                  </div>
+                  <div class="error"></div>
+                  <div class="form loginBox">
+                    <form method="" action="" accept-charset="UTF-8">
+                      <input id="emailLogin" class="form-control" type="text" placeholder="Email" name="email" />
+                      <input
+                        id="passwordLogin"
+                        class="form-control"
+                        type="password"
+                        placeholder="Password"
+                        name="password"
+                        v-on:keyup.enter="this.login()"
+                      />
+                      <input class="btn btn-login" type="button" value="Login" onclick="login()" />
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <div class="sub-text">
+                <span>
+                  Looking to <a href="javascript: openRegisterModal();">create an account</a>?
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade register " id="registerModal">
+        <div class="modal-dialog register animated">
+          <div class="modal-content">
+            <div class="modal-header">
+              <p class="modal-title">Register with</p>
+              <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="box">
+                <div class="content registerBox">
+                  <div class="social">
+                    <a class="circle github" href="#">
+                      <i class="fab fa-github"></i>
+                    </a>
+                    <a id="google_login" class="circle google" href="#">
+                      <i class="fab fa-google"></i>
+                    </a>
+                    <a id="facebook_login" class="circle facebook" href="#">
+                      <i class="fab fa-facebook-f"></i>
+                    </a>
+                  </div>
+                  <div class="division">
+                    <div class="line l"></div>
+                    <span>or</span>
+                    <div class="line r"></div>
+                  </div>
+                  <div class="form">
+                    <form method="" html="{:multipart=>true}" data-remote="true" action="" accept-charset="UTF-8">
+                      <input
+                        id="nicknameRegister"
+                        class="form-control"
+                        type="text"
+                        placeholder="Nickname"
+                        name="nickname"
+                      />
+                      <input id="emailRegister" class="form-control" type="email" placeholder="Email" name="email" />
+                      <input
+                        id="passwordRegister"
+                        class="form-control"
+                        type="password"
+                        placeholder="Password"
+                        name="password"
+                      />
+                      <input
+                        id="password_confirmation"
+                        class="form-control"
+                        type="password"
+                        placeholder="Repeat Password"
+                        name="password_confirmation"
+                      />
+                      <input
+                        class="btn btn-register"
+                        type="button"
+                        value="Create account"
+                        onclick="registerNewUser()"
+                        name="commit"
+                      />
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <div class="sub-text">
+                <span>Already have an account?</span>
+                <a href="javascript: openLoginModal();">Login</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade options" id="optionsModal">
+        <div class="modal-dialog options animated">
+          <div class="modal-content">
+            <div class="modal-body">
+              <div class="box">
+                <div class="content">
+                  <div class="">
+                    <form method="" action="" accept-charset="UTF-8">
+                      <div class="form-group">
+                        <label for="editor-theme">Editor theme</label>
+                        <select class="form-control" id="editor-theme">
+                          <option value="darcula">Darcula</option>
+                          <option value="base16-dark">Base 16 Dark</option>
+                          <option value="base16-light">Base 16 Light</option>
+                          <option value="eclipse">Eclipse</option>
+                          <option value="monokai">Monokai</option>
+                          <option value="moxer">Moxer</option>
+                        </select>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <input class="btn" type="button" value="save" onclick="saveOptions()" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade new-file" id="newFileModal">
+        <div class="modal-dialog options animated">
+          <div class="modal-content">
+            <div class="modal-body">
+              <div class="box">
+                <div class="content">
+                  <div class="">
+                    <form method="" action="" accept-charset="UTF-8">
+                      <div class="form-group">
+                        <label for="new-file-name">File name</label>
+                        <input class="form-control" id="new-file-name" />
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <input class="btn btn-login" type="button" value="save" onclick="saveFile(currentTreeNode)" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade new-code" id="newCodeModal">
+        <div class="modal-dialog options animated">
+          <div class="modal-content">
+            <div class="modal-body">
+              <div class="box">
+                <div class="content">
+                  <div class="">
+                    <form method="" action="" accept-charset="UTF-8">
+                      <div class="form-group">
+                        <label for="new-code-name">Code name</label>
+                        <input class="form-control" id="new-code-name" />
+                      </div>
+                      <div class="form-group">
+                        <label for="code-language">Code language</label>
+                        <div class="dropdown">
+                          <a
+                            class="dropdown-toggle lang-dropdown-btn"
+                            href="#"
+                            role="button"
+                            id="dropdownMenuLink"
+                            data-toggle="dropdown"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                          >
+                            <img :src="selectedLanguage.img" class="img-lang" />
+                            {{selectedLanguage.name}}
+                          </a>
+
+                          <div class="dropdown-menu lang-dropdown-menu" aria-labelledby="dropdownMenuLink">
+                            <a
+                              v-for="lang in languages"
+                              class="dropdown-item lang-dropdown-item"
+                              @click="changeLangSelected(lang)"
+                            >
+                              <img :src="lang.img" class="img-lang" />
+                              {{lang.name}}
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <input class="btn btn-login" type="button" value="save" onclick="saveCode()" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal fade list-code" id="ListCodeModal">
+        <div class="modal-dialog options animated">
+          <div class="modal-content">
+            <div class="modal-body">
+              <div class="box">
+                <div class="content">
+                  <div class="list-group">
+                    <a class="list-group-item list-group-item-action" v-for="code in userCodes" 
+                    @click="goToCode(code.CodeName)">
+                      <img :src='getImgLang(code.CodeLanguage)' class="img-lang"/>
+                      {{code.CodeName}}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- END MODALS -->
+    </div>
+  </body>
+
+  <!--VUE IMPORT-->
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  <!--END VUE IMPORT-->
+
+  <!--GENERAL IMPORT-->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+    integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+    crossorigin="anonymous"
+  ></script>
+  <script
+    src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+    integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+    crossorigin="anonymous"
+  ></script>
+  <script src="/js/util.js"></script>
+  <script src="/toastr/build/toastr.min.js"></script>
+  <script src="/js/code.js"></script>
+  <!--END GENERAL IMPORT-->
+
+  <!--SOCKET IMPORT-->
+  <script src="/socket.io-client/dist/socket.io.js"></script>
+  <script src="/js/code-client.js"></script>
+  <!--END SOCKET IMPORT-->
+
+  <!--TERMINAL IMPORT-->
+  <script src="/xterm/lib/xterm.js"></script>
+  <script type="module" src="/js/terminal.js"></script>
+  <!--END TERMINAL IMPORT-->
+
+  <!--JSTREE IMPORT-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
+  <!--END JSTREE IMPORT-->
+
+  <!--FILE TREE IMPORT-->
+  <script src="/js/file-tree.js"></script>
+  <!--END FILE TREE IMPORT-->
+
+  <!--MONACO EDITOR-->
+  <script src="/monaco-editor/min/vs/loader.js"></script>
+  <script src="/js/monaco-editor.js"></script>
+  <!--END MONACO EDITOR-->
+</html>
